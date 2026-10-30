@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  password           String
+  department         String?
+  university         String   @default("State University")
+  bio                String?
+  expertiseTags      String[]
+  collaborationNeeds String[]
+  contactInfo        String?
+  avatarUrl          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Mentor fields
+  isMentor          Boolean  @default(false)
+  mentorshipFocus   String[] // e.g. ["grad students", "postdocs", "undergrads", "early-career faculty"]
+  mentoringAreas    String[] // editable copy of expertise tags for mentoring context
+  mentorshipStyle   String?  // free-text availability / style description
+  maxMentees        Int?     // optional cap on current mentees
+
+  projects              Project[]
+  sentRequests          CollabRequest[]  @relation("SentRequests")
+  receivedRequests      CollabRequest[]  @relation("ReceivedRequests")
+  sentMentorRequests    MentorRequest[]  @relation("SentMentorRequests")
+  receivedMentorRequests MentorRequest[] @relation("ReceivedMentorRequests")
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  tags            String[]
+  neededExpertise String[]
+  status          String   @default("active") // active, completed, paused
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requests CollabRequest[]
+}
+
+model CollabRequest {
+  id        String   @id @default(cuid())
+  message   String?
+  status    String   @default("pending") // pending, accepted, declined
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromUserId String
+  toUserId   String
+  projectId  String?
+
+  fromUser User     @relation("SentRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User     @relation("ReceivedRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model MentorRequest {
+  id       String @id @default(cuid())
+  // Mentee context fields
+  stage    String  // career stage: "Undergraduate", "Graduate Student", etc.
+  goals    String  // what the mentee hopes to get
+  workDesc String  // brief description of their work
+  message  String? // optional extra message
+  status   String  @default("pending") // pending, accepted, declined
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromUserId String
+  toUserId   String
+
+  fromUser User @relation("SentMentorRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedMentorRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+}
